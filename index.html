@@ -1,0 +1,1720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bo the Bumblebee - Arcade Edition</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #2a2a2a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+        
+        /* Arcade Machine Container */
+        #arcadeMachine {
+            position: relative;
+            width: 520px;
+            height: 820px;
+            background: linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 100%);
+            border-radius: 20px 20px 10px 10px;
+            box-shadow: 
+                0 0 50px rgba(0,0,0,0.5),
+                inset 0 0 20px rgba(255,255,255,0.1);
+            padding: 20px;
+            padding-top: 40px;
+            transform: perspective(1000px) rotateX(2deg);
+            margin-top: 90px;
+        }
+        
+        /* Arcade Machine Screen Bezel */
+        #screenBezel {
+            position: relative;
+            width: 100%;
+            height: 660px;
+            background: #000;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 
+                inset 0 0 30px rgba(0,0,0,0.8),
+                0 0 10px rgba(255,255,255,0.1);
+        }
+        
+        /* Screen Container with CRT effect */
+        #screenContainer {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: #111;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 
+                inset 0 0 40px rgba(0,0,0,0.9),
+                0 0 20px rgba(100,200,255,0.2);
+        }
+        
+        /* CRT Screen Effect Overlay */
+        #screenContainer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                repeating-linear-gradient(
+                    0deg,
+                    rgba(0,0,0,0.15) 0px,
+                    transparent 1px,
+                    transparent 2px,
+                    rgba(0,0,0,0.15) 3px
+                );
+            pointer-events: none;
+            z-index: 3;
+        }
+        
+        /* Arcade Machine Marquee */
+        #marquee {
+            position: absolute;
+            top: -80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 400px;
+            height: 80px;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 
+                0 0 30px rgba(255,215,0,0.5),
+                inset 0 0 20px rgba(255,255,255,0.3);
+            z-index: 1;
+        }
+        
+        #marquee h1 {
+            color: #333;
+            font-size: 28px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+        
+        /* Control Panel */
+        #controlPanel {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            height: 120px;
+            background: linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%);
+            border-radius: 10px;
+            box-shadow: 
+                inset 0 2px 5px rgba(0,0,0,0.5),
+                0 2px 5px rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 40px;
+        }
+        
+        /* Arcade Button Style */
+        .arcadeButton {
+            width: 80px;
+            height: 80px;
+            background: radial-gradient(circle at 30% 30%, #ff3333, #cc0000);
+            border: 5px solid #000;
+            border-radius: 50%;
+            box-shadow: 
+                0 5px 10px rgba(0,0,0,0.5),
+                inset 0 -5px 10px rgba(0,0,0,0.3),
+                inset 0 5px 10px rgba(255,255,255,0.3);
+            cursor: pointer;
+            position: relative;
+            transition: all 0.1s;
+        }
+        
+        .arcadeButton:active {
+            transform: translateY(3px);
+            box-shadow: 
+                0 2px 5px rgba(0,0,0,0.5),
+                inset 0 -2px 5px rgba(0,0,0,0.3),
+                inset 0 2px 5px rgba(255,255,255,0.3);
+        }
+        
+        .arcadeButton::after {
+            content: 'FLAP';
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 12px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        /* Game Container */
+        #gameContainer {
+            position: relative;
+            width: 400px;
+            height: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        /* Canvas */
+        canvas {
+            display: block;
+            image-rendering: crisp-edges;
+            cursor: pointer;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Loading Screen */
+        #loadingScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #87CEEB;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 10;
+        }
+        
+        #loadingText {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        #loadingBar {
+            width: 200px;
+            height: 20px;
+            background: #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        #loadingProgress {
+            height: 100%;
+            background: #FFD700;
+            transition: width 0.3s;
+            width: 0%;
+        }
+        
+        /* Instructions on screen */
+        #instructions {
+            position: absolute;
+            bottom: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: rgba(255,255,255,0.7);
+            font-size: 12px;
+            z-index: 2;
+        }
+        
+        /* Mobile adjustments */
+        @media (max-width: 600px) {
+            #arcadeMachine {
+                width: 95vw;
+                max-width: 420px;
+                height: auto;
+                transform: none;
+            }
+            
+            #marquee {
+                width: 90%;
+                top: -60px;
+                height: 60px;
+            }
+            
+            #marquee h1 {
+                font-size: 20px;
+            }
+            
+            #screenBezel {
+                height: 500px;
+            }
+            
+            #gameContainer {
+                width: 100%;
+                height: 100%;
+            }
+            
+            canvas {
+                width: 100% !important;
+                height: 100% !important;
+            }
+            
+            #controlPanel {
+                height: 100px;
+            }
+            
+            .arcadeButton {
+                width: 60px;
+                height: 60px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="arcadeMachine">
+        <div id="marquee">
+            <h1>BO THE BUMBLEBEE</h1>
+        </div>
+        
+        <div id="screenBezel">
+            <div id="screenContainer">
+                <div id="gameContainer">
+                    <canvas id="gameCanvas" width="400" height="600"></canvas>
+                    <div id="loadingScreen">
+                        <div id="loadingText">Loading Bo's Garden...</div>
+                        <div id="loadingBar">
+                            <div id="loadingProgress"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="instructions">Press SPACE or click button to play</div>
+            </div>
+        </div>
+        
+        <div id="controlPanel">
+            <button class="arcadeButton" id="flapBtn"></button>
+        </div>
+    </div>
+
+    <script>
+// ========== CONFIG ==========
+const CONFIG = {
+    GAME: {
+        WIDTH: 400,
+        HEIGHT: 600,
+        GRAVITY: 0.25,
+        FLAP_STRENGTH: -5,
+        OBSTACLE_SPEED: 2,
+        OBSTACLE_GAP: 150,
+        GROUND_HEIGHT: 80,
+        CEILING_HEIGHT: 50
+    },
+    BEE: {
+        SIZE: 40,
+        X: 100,
+        HOVER_AMPLITUDE: 0.5,
+        BUZZ_FREQUENCY: 0.1,
+        WING_ANIM_SPEED: 0.3,
+        MAX_VELOCITY: 8,
+        MIN_VELOCITY: -6,
+        HITBOX_SHRINK: 5,
+        START_VELOCITY: -3  // Start with upward velocity
+    },
+    FLOWERS: {
+        WIDTH: 120,
+        GAP_HEIGHT: 150,
+        MIN_HEIGHT: 100,
+        SPACING: 250,
+        POINT_ZONE: 30,
+        HITBOX_SHRINK: 15
+    },
+    SCORING: {
+        PASS_OBSTACLE: 10,
+        NECTAR_COLLECT: 5,
+        CLOSE_CALL_BONUS: 2,
+        POLLINATION_BONUS: 3
+    },
+    PARTICLES: {
+        NECTAR_COUNT: 15,
+        COLLISION_COUNT: 20
+    },
+    TIMING: {
+        NECTAR_SPAWN_CHANCE: 0.3
+    }
+};
+
+// ========== OPTIMIZED ASSET MANAGER ==========
+class AssetManager {
+    constructor() {
+        this.images = {};
+        this.sounds = {};
+        this.loaded = false;
+        this.loadingProgress = 0;
+        this.placeholderCache = new Map(); // Cache for placeholder canvases
+        
+        // Define all assets to load
+        this.imageFiles = [
+            'bo_flying_1.png',
+            'bo_hurt.png',
+            'sunflower_bottom.png',
+            'sunflower_top.png',
+            'nectar_drop.png',
+            'honey_pot.png',
+            'clouds.png',
+            'Flowerpot_Floor.png'
+        ];
+        
+        this.soundFiles = [
+            'buzz.mp3',
+            'collect_nectar.mp3',
+            'hit_obstacle.mp3',
+            'garden_ambient.mp3'
+        ];
+    }
+    
+    async loadAll() {
+        const totalAssets = this.imageFiles.length + this.soundFiles.length;
+        let loadedAssets = 0;
+        
+        // Update loading progress
+        const updateProgress = () => {
+            loadedAssets++;
+            this.loadingProgress = (loadedAssets / totalAssets) * 100;
+            const progressBar = document.getElementById('loadingProgress');
+            if (progressBar) {
+                progressBar.style.width = this.loadingProgress + '%';
+            }
+        };
+        
+        // Load images
+        const imagePromises = this.imageFiles.map(async (filename) => {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    this.images[filename.replace('.png', '')] = img;
+                    updateProgress();
+                    resolve();
+                };
+                img.onerror = () => {
+                    console.warn(`Failed to load image: ${filename}`);
+                    // Create placeholder canvas for missing images
+                    const placeholderKey = filename.replace('.png', '');
+                    if (!this.placeholderCache.has(placeholderKey)) {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 64;
+                        canvas.height = 64;
+                        const ctx = canvas.getContext('2d');
+                        this.drawPlaceholder(ctx, placeholderKey, 0, 0, 64, 64);
+                        this.placeholderCache.set(placeholderKey, canvas);
+                    }
+                    this.images[placeholderKey] = this.placeholderCache.get(placeholderKey);
+                    updateProgress();
+                    resolve();
+                };
+                img.src = 'assets/images/' + filename;
+            });
+        });
+        
+        // Load sounds
+        const soundPromises = this.soundFiles.map(async (filename) => {
+            return new Promise((resolve) => {
+                if (typeof Audio !== 'undefined') {
+                    const audio = new Audio();
+                    audio.onloadeddata = () => {
+                        this.sounds[filename.replace('.mp3', '')] = audio;
+                        updateProgress();
+                        resolve();
+                    };
+                    audio.onerror = () => {
+                        console.warn(`Failed to load sound: ${filename}`);
+                        updateProgress();
+                        resolve();
+                    };
+                    audio.src = 'assets/sounds/' + filename;
+                    audio.load();
+                } else {
+                    updateProgress();
+                    resolve();
+                }
+            });
+        });
+        
+        // Wait for all assets to load
+        await Promise.all([...imagePromises, ...soundPromises]);
+        this.loaded = true;
+        
+        // Hide loading screen
+        const loadingScreen = document.getElementById('loadingScreen');
+        if (loadingScreen) {
+            loadingScreen.style.display = 'none';
+        }
+    }
+    
+    drawImage(ctx, imageName, x, y, w, h) {
+        const img = this.images[imageName];
+        if (img) {
+            ctx.drawImage(img, x, y, w, h);
+        } else {
+            // Fallback to placeholder
+            this.drawPlaceholder(ctx, imageName, x, y, w, h);
+        }
+    }
+    
+    drawPlaceholder(ctx, imageName, x, y, w, h) {
+        ctx.save();
+        
+        switch(imageName) {
+            case 'bo_flying_1':
+            case 'bo_flying_2':
+            case 'bo_flying_3':
+                this.drawBeePlaceholder(ctx, x, y, w, h, false);
+                break;
+            case 'bo_hurt':
+                this.drawBeePlaceholder(ctx, x, y, w, h, true);
+                break;
+            case 'sunflower_top':
+                this.drawSunflowerTopPlaceholder(ctx, x, y, w, h);
+                break;
+            case 'sunflower_bottom':
+                this.drawSunflowerBottomPlaceholder(ctx, x, y, w, h);
+                break;
+            case 'nectar_drop':
+                this.drawNectarPlaceholder(ctx, x, y, w, h);
+                break;
+            case 'honey_pot':
+                this.drawHoneyPotPlaceholder(ctx, x, y, w, h);
+                break;
+            case 'Flowerpot_Floor':
+                this.drawFlowerpotFloorPlaceholder(ctx, x, y, w, h);
+                break;
+            case 'clouds':
+                this.drawCloudPlaceholder(ctx, x, y, w, h);
+                break;
+            default:
+                ctx.fillStyle = '#FF00FF';
+                ctx.fillRect(x, y, w, h);
+        }
+        
+        ctx.restore();
+    }
+    
+    drawBeePlaceholder(ctx, x, y, w, h, isHurt) {
+        // Body
+        ctx.fillStyle = isHurt ? '#FF6347' : '#FFD700';
+        ctx.beginPath();
+        ctx.ellipse(x + w/2, y + h/2, w/2.5, h/3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Stripes
+        if (!isHurt) {
+            ctx.fillStyle = '#000000';
+            for(let i = 0; i < 3; i++) {
+                ctx.fillRect(x + w/4 + i * w/5, y + h/3, w/8, h/3);
+            }
+        }
+        
+        // Wings
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.beginPath();
+        ctx.ellipse(x + w/3, y + h/2 - 5, w/4, h/4, Math.PI/6, 0, Math.PI * 2);
+        ctx.ellipse(x + 2*w/3, y + h/2 - 5, w/4, h/4, -Math.PI/6, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Eye
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(x + 3*w/4, y + h/2, 3, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    drawSunflowerTopPlaceholder(ctx, x, y, w, h) {
+        // Stem going up
+        ctx.fillStyle = '#228B22';
+        ctx.fillRect(x + w/2 - 10, y, 20, h);
+        
+        // Leaves
+        ctx.fillStyle = '#228B22';
+        ctx.beginPath();
+        ctx.ellipse(x + w/2 - 20, y + h/2, 15, 8, -Math.PI/4, 0, Math.PI * 2);
+        ctx.ellipse(x + w/2 + 20, y + h/2.5, 15, 8, Math.PI/4, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Petals at top
+        ctx.fillStyle = '#FFD700';
+        const petalCount = 8;
+        for(let i = 0; i < petalCount; i++) {
+            const angle = (i * Math.PI * 2) / petalCount;
+            const petalX = x + w/2 + Math.cos(angle) * w/3;
+            const petalY = y + 40 + Math.sin(angle) * w/3;
+            ctx.beginPath();
+            ctx.arc(petalX, petalY, w/5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // Center
+        ctx.fillStyle = '#8B4513';
+        ctx.beginPath();
+        ctx.arc(x + w/2, y + 40, w/4, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    drawSunflowerBottomPlaceholder(ctx, x, y, w, h) {
+        // Save context for clipping
+        ctx.save();
+        
+        // Clip to visible area
+        ctx.beginPath();
+        ctx.rect(x, y, w, h);
+        ctx.clip();
+        
+        // Stem from ground up
+        ctx.fillStyle = '#228B22';
+        ctx.fillRect(x + w/2 - 10, y, 20, h + 40);
+        
+        // Leaves
+        ctx.fillStyle = '#228B22';
+        ctx.beginPath();
+        ctx.ellipse(x + w/2 - 20, y + h/3, 15, 8, -Math.PI/4, 0, Math.PI * 2);
+        ctx.ellipse(x + w/2 + 20, y + h/2, 15, 8, Math.PI/4, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Petals at bottom
+        ctx.fillStyle = '#FFD700';
+        const petalCount = 8;
+        for(let i = 0; i < petalCount; i++) {
+            const angle = (i * Math.PI * 2) / petalCount;
+            const petalX = x + w/2 + Math.cos(angle) * w/3;
+            const petalY = y + h - 40 + Math.sin(angle) * w/3;
+            ctx.beginPath();
+            ctx.arc(petalX, petalY, w/5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // Center
+        ctx.fillStyle = '#8B4513';
+        ctx.beginPath();
+        ctx.arc(x + w/2, y + h - 40, w/4, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+    }
+    
+    drawNectarPlaceholder(ctx, x, y, w, h) {
+        ctx.fillStyle = '#FFB6C1';
+        ctx.globalAlpha = 0.8;
+        
+        // Teardrop shape
+        ctx.beginPath();
+        ctx.arc(x + w/2, y + h/2, w/3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Highlight
+        ctx.fillStyle = '#FFFFFF';
+        ctx.globalAlpha = 0.5;
+        ctx.beginPath();
+        ctx.arc(x + w/2 - w/6, y + h/2 - h/6, w/6, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.globalAlpha = 1;
+    }
+    
+    drawHoneyPotPlaceholder(ctx, x, y, w, h) {
+        // Pot body
+        ctx.fillStyle = '#D2691E';
+        ctx.beginPath();
+        ctx.ellipse(x + w/2, y + h/2, w/2.5, h/2.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Honey drip
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.ellipse(x + w/2, y + h/4, w/3, h/5, 0, 0, Math.PI);
+        ctx.fill();
+        
+        // Label
+        ctx.fillStyle = '#8B4513';
+        ctx.font = `${h/4}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText('H', x + w/2, y + h/2 + h/8);
+    }
+    
+    drawFlowerpotFloorPlaceholder(ctx, x, y, w, h) {
+        // Base color
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(x, y, w, h);
+        
+        // Draw repeating pots
+        const potWidth = 80;
+        const numPots = Math.ceil(w / potWidth) + 1;
+        
+        ctx.fillStyle = '#D2691E';
+        for (let i = 0; i < numPots; i++) {
+            const potX = x + (i * potWidth) - (x % potWidth);
+            
+            // Pot shape
+            ctx.beginPath();
+            ctx.moveTo(potX + 15, y);
+            ctx.lineTo(potX + 20, y + h);
+            ctx.lineTo(potX + 60, y + h);
+            ctx.lineTo(potX + 65, y);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Pot rim
+            ctx.fillStyle = '#654321';
+            ctx.fillRect(potX + 10, y, 60, 8);
+            ctx.fillStyle = '#D2691E';
+        }
+        
+        // Soil
+        ctx.fillStyle = '#3E2723';
+        ctx.fillRect(x, y + 8, w, 12);
+    }
+    
+    drawCloudPlaceholder(ctx, x, y, w, h) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        
+        // Cloud puffs
+        const puffs = [
+            { x: 0.2, y: 0.5, r: 0.3 },
+            { x: 0.4, y: 0.3, r: 0.35 },
+            { x: 0.6, y: 0.3, r: 0.35 },
+            { x: 0.8, y: 0.5, r: 0.3 },
+            { x: 0.3, y: 0.6, r: 0.25 },
+            { x: 0.5, y: 0.7, r: 0.3 },
+            { x: 0.7, y: 0.6, r: 0.25 }
+        ];
+        
+        puffs.forEach(puff => {
+            ctx.beginPath();
+            ctx.arc(x + w * puff.x, y + h * puff.y, Math.min(w, h) * puff.r, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+}
+
+// ========== SOUND MANAGER ==========
+class SoundManager {
+    constructor() {
+        this.sounds = {};
+        this.muted = false;
+        this.volume = 0.5;
+    }
+    
+    async initialize(assetManager) {
+        this.sounds = assetManager.sounds;
+        
+        // Set volume for all sounds
+        Object.values(this.sounds).forEach(sound => {
+            if (sound) {
+                sound.volume = this.volume;
+            }
+        });
+    }
+    
+    play(name, options = {}) {
+        if (this.muted || !this.sounds[name]) return;
+        
+        const sound = this.sounds[name];
+        
+        if (options.loop) {
+            sound.loop = true;
+        }
+        
+        if (options.volume !== undefined) {
+            sound.volume = options.volume * this.volume;
+        }
+        
+        sound.currentTime = 0;
+        sound.play().catch(e => {
+            console.log(`Could not play sound ${name}:`, e);
+        });
+    }
+    
+    stop(name) {
+        if (this.sounds[name]) {
+            this.sounds[name].pause();
+            this.sounds[name].currentTime = 0;
+        }
+    }
+    
+    toggleMute() {
+        this.muted = !this.muted;
+        if (this.muted) {
+            Object.values(this.sounds).forEach(sound => {
+                if (sound) sound.pause();
+            });
+        }
+    }
+}
+
+// ========== OPTIMIZED PARTICLE SYSTEM ==========
+class ParticleSystem {
+    constructor() {
+        this.particles = [];
+        this.maxParticles = 200;
+    }
+    
+    emit(x, y, color, count = 10, options = {}) {
+        // Limit total particles for performance
+        if (this.particles.length > this.maxParticles) {
+            this.particles = this.particles.slice(-this.maxParticles/2);
+        }
+        
+        const {
+            speed = 4,
+            life = 30,
+            size = 3,
+            gravity = 0.1,
+            spread = Math.PI * 2
+        } = options;
+        
+        for (let i = 0; i < count; i++) {
+            const angle = (spread * i) / count - spread / 2 + Math.PI / 2;
+            this.particles.push({
+                x,
+                y,
+                vx: Math.cos(angle) * speed * (0.5 + Math.random() * 0.5),
+                vy: Math.sin(angle) * speed * (0.5 + Math.random() * 0.5),
+                life,
+                maxLife: life,
+                color,
+                size: size + Math.random() * 2,
+                gravity
+            });
+        }
+    }
+    
+    update() {
+        // Process particles in reverse for efficient removal
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += p.gravity;
+            p.life--;
+            p.vx *= 0.98;
+            
+            if (p.life <= 0) {
+                this.particles.splice(i, 1);
+            }
+        }
+    }
+    
+    render(ctx) {
+        ctx.save();
+        this.particles.forEach(p => {
+            const alpha = p.life / p.maxLife;
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        ctx.restore();
+    }
+}
+
+// ========== ENTITY BASE CLASS ==========
+class Entity {
+    constructor(x, y, speed = 0) {
+        this.x = x;
+        this.y = y;
+        this.speed = speed;
+        this.width = 0;
+        this.height = 0;
+    }
+    
+    getBounds() {
+        return {
+            left: this.x,
+            right: this.x + this.width,
+            top: this.y,
+            bottom: this.y + this.height
+        };
+    }
+    
+    getHitbox() {
+        // Default hitbox is same as bounds
+        return this.getBounds();
+    }
+    
+    collidesWith(other) {
+        const a = this.getHitbox();
+        const b = other.getHitbox();
+        return !(a.right < b.left || a.left > b.right || 
+                 a.bottom < b.top || a.top > b.bottom);
+    }
+}
+
+// ========== BO (PLAYER) CLASS ==========
+class Bo extends Entity {
+    constructor(x, y) {
+        super(x, y, 0);
+        this.width = CONFIG.BEE.SIZE;
+        this.height = CONFIG.BEE.SIZE;
+        this.velocity = 0;
+        this.wingFrame = 0;
+        this.hoverOffset = 0;
+        this.rotation = 0;
+    }
+    
+    getHitbox() {
+        // Smaller hitbox for more forgiving gameplay
+        const shrink = CONFIG.BEE.HITBOX_SHRINK;
+        return {
+            left: this.x + shrink,
+            right: this.x + this.width - shrink,
+            top: this.y + shrink,
+            bottom: this.y + this.height - shrink
+        };
+    }
+    
+    update() {
+        // Natural hovering/buzzing effect
+        this.hoverOffset += CONFIG.BEE.BUZZ_FREQUENCY;
+        const hoverY = Math.sin(this.hoverOffset) * CONFIG.BEE.HOVER_AMPLITUDE;
+        
+        // Gravity and velocity
+        this.velocity += CONFIG.GAME.GRAVITY;
+        this.velocity = Math.max(CONFIG.BEE.MIN_VELOCITY, 
+                                 Math.min(CONFIG.BEE.MAX_VELOCITY, this.velocity));
+        this.y += this.velocity + hoverY;
+        
+        // Wing animation for buzzing
+        this.wingFrame = (this.wingFrame + CONFIG.BEE.WING_ANIM_SPEED) % 3;
+        
+        // Rotation based on velocity
+        this.rotation = Math.max(-30, Math.min(30, this.velocity * 3));
+    }
+    
+    flap() {
+        this.velocity = CONFIG.GAME.FLAP_STRENGTH;
+        soundManager.play('buzz');
+    }
+    
+    render(ctx) {
+        ctx.save();
+        ctx.translate(this.x + this.width/2, this.y + this.height/2);
+        ctx.rotate(this.rotation * Math.PI / 180);
+        
+        // Draw Bo
+        assetManager.drawImage(ctx, 'bo_flying_1', 
+                              -this.width/2, -this.height/2, this.width, this.height);
+        
+        ctx.restore();
+    }
+}
+
+// ========== FIXED OBSTACLE CLASS ==========
+class Obstacle extends Entity {
+    constructor(x) {
+        super(x, 0, CONFIG.GAME.OBSTACLE_SPEED);
+        this.width = CONFIG.FLOWERS.WIDTH;
+        this.gapY = CONFIG.FLOWERS.MIN_HEIGHT + Math.random() * 
+                   (CONFIG.GAME.HEIGHT - CONFIG.FLOWERS.MIN_HEIGHT * 2 - CONFIG.FLOWERS.GAP_HEIGHT - CONFIG.GAME.GROUND_HEIGHT);
+        this.gapHeight = CONFIG.FLOWERS.GAP_HEIGHT;
+        this.passed = false;
+        this.scored = false;
+        this.hasNectar = Math.random() < CONFIG.TIMING.NECTAR_SPAWN_CHANCE;
+        this.hasHoney = !this.hasNectar && Math.random() < 0.05;
+        
+        // Fixed height for sunflowers
+        this.sunflowerHeight = 300;
+    }
+    
+    update() {
+        this.x -= this.speed;
+    }
+    
+    render(ctx) {
+        // Top sunflower
+        const topHeight = this.gapY;
+        if (topHeight > 0) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(this.x, 0, this.width, topHeight);
+            ctx.clip();
+            
+            assetManager.drawImage(ctx, 'sunflower_top', 
+                                  this.x, this.gapY - this.sunflowerHeight, 
+                                  this.width, this.sunflowerHeight);
+            ctx.restore();
+        }
+        
+        // Bottom sunflower - FIXED CROPPING
+        const bottomY = this.gapY + this.gapHeight;
+        const bottomHeight = CONFIG.GAME.HEIGHT - bottomY - CONFIG.GAME.GROUND_HEIGHT;
+        if (bottomHeight > 0) {
+            ctx.save();
+            // Create clipping region for visible area
+            ctx.beginPath();
+            ctx.rect(this.x, bottomY, this.width, bottomHeight);
+            ctx.clip();
+            
+            // Draw the sunflower positioned so only the top portion shows
+            // The key fix: position the image so its TOP aligns with bottomY
+            assetManager.drawImage(ctx, 'sunflower_bottom', 
+                                  this.x, bottomY, 
+                                  this.width, this.sunflowerHeight);
+            ctx.restore();
+        }
+        
+        // Collectibles in gap
+        if (this.hasNectar) {
+            assetManager.drawImage(ctx, 'nectar_drop', 
+                                  this.x + this.width/2 - 15, 
+                                  this.gapY + this.gapHeight/2 - 15, 30, 30);
+        } else if (this.hasHoney) {
+            assetManager.drawImage(ctx, 'honey_pot', 
+                                  this.x + this.width/2 - 20, 
+                                  this.gapY + this.gapHeight/2 - 20, 40, 40);
+        }
+    }
+    
+    getTopHitbox() {
+        const shrink = CONFIG.FLOWERS.HITBOX_SHRINK;
+        return {
+            left: this.x + shrink,
+            right: this.x + this.width - shrink,
+            top: 0,
+            bottom: this.gapY
+        };
+    }
+    
+    getBottomHitbox() {
+        const shrink = CONFIG.FLOWERS.HITBOX_SHRINK;
+        return {
+            left: this.x + shrink,
+            right: this.x + this.width - shrink,
+            top: this.gapY + this.gapHeight,
+            bottom: CONFIG.GAME.HEIGHT - CONFIG.GAME.GROUND_HEIGHT
+        };
+    }
+    
+    checkCollision(bo) {
+        const boHitbox = bo.getHitbox();
+        const topHitbox = this.getTopHitbox();
+        const bottomHitbox = this.getBottomHitbox();
+        
+        // Check if Bo hit the top flower
+        if (!(boHitbox.right < topHitbox.left || boHitbox.left > topHitbox.right || 
+              boHitbox.bottom < topHitbox.top || boHitbox.top > topHitbox.bottom)) {
+            return 'obstacle';
+        }
+        
+        // Check if Bo hit the bottom flower
+        if (!(boHitbox.right < bottomHitbox.left || boHitbox.left > bottomHitbox.right || 
+              boHitbox.bottom < bottomHitbox.top || boHitbox.top > bottomHitbox.bottom)) {
+            return 'obstacle';
+        }
+        
+        // Check for collectibles
+        if (boHitbox.right > this.x && boHitbox.left < this.x + this.width) {
+            if (this.hasNectar || this.hasHoney) {
+                const collectX = this.x + this.width/2;
+                const collectY = this.gapY + this.gapHeight/2;
+                const dist = Math.sqrt(Math.pow(bo.x + bo.width/2 - collectX, 2) + 
+                                     Math.pow(bo.y + bo.height/2 - collectY, 2));
+                
+                if (dist < 30) {
+                    if (this.hasNectar) {
+                        this.hasNectar = false;
+                        return 'nectar';
+                    } else if (this.hasHoney) {
+                        this.hasHoney = false;
+                        return 'honey';
+                    }
+                }
+            }
+            
+            // Check for pollination bonus (flying close to flowers)
+            if (!this.scored && Math.abs((bo.y + bo.height/2) - (this.gapY + this.gapHeight/2)) < CONFIG.FLOWERS.POINT_ZONE) {
+                this.scored = true;
+                return 'pollination';
+            }
+        }
+        
+        return false;
+    }
+}
+
+// ========== GAME STATE CLASSES ==========
+class GameState {
+    constructor(game) {
+        this.game = game;
+    }
+    enter() {}
+    exit() {}
+    update() {}
+    render() {}
+    handleInput(input) {}
+}
+
+class MenuState extends GameState {
+    enter() {
+        this.animationTime = 0;
+        this.floorX = 0;
+        this.cloudX = 0;
+        this.beeY = 250;
+        this.beeDirection = 1;
+        soundManager.stop('garden_ambient');
+    }
+    
+    update() {
+        this.animationTime++;
+        this.floorX -= 1;
+        if (this.floorX < -80) {
+            this.floorX = 0;
+        }
+        this.cloudX -= 0.5;
+        if (this.cloudX < -CONFIG.GAME.WIDTH) {
+            this.cloudX = 0;
+        }
+        
+        // Animated bee movement
+        this.beeY += Math.sin(this.animationTime * 0.05) * 0.5;
+    }
+    
+    render() {
+        const ctx = this.game.ctx;
+        
+        // Sky background
+        ctx.fillStyle = '#87CEEB';
+        ctx.fillRect(0, 0, CONFIG.GAME.WIDTH, CONFIG.GAME.HEIGHT);
+        
+        // Moving clouds
+        assetManager.drawImage(ctx, 'clouds', this.cloudX, 20, 200, 80);
+        assetManager.drawImage(ctx, 'clouds', this.cloudX + 200, 60, 200, 80);
+        assetManager.drawImage(ctx, 'clouds', this.cloudX + 400, 40, 200, 80);
+        
+        // Scrolling flowerpot floor
+        assetManager.drawImage(ctx, 'Flowerpot_Floor', 
+                              this.floorX, 
+                              CONFIG.GAME.HEIGHT - CONFIG.GAME.GROUND_HEIGHT, 
+                              CONFIG.GAME.WIDTH * 2, 
+                              CONFIG.GAME.GROUND_HEIGHT);
+        
+        // Title with arcade style
+        ctx.save();
+        ctx.fillStyle = '#FFD700';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 4;
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetX = 3;
+        ctx.shadowOffsetY = 3;
+        ctx.strokeText('Bo the Bumblebee', CONFIG.GAME.WIDTH/2, 150);
+        ctx.fillText('Bo the Bumblebee', CONFIG.GAME.WIDTH/2, 150);
+        ctx.restore();
+        
+        // Bo animation
+        ctx.save();
+        ctx.translate(CONFIG.GAME.WIDTH/2, this.beeY);
+        ctx.rotate(Math.sin(this.animationTime * 0.02) * 0.1);
+        assetManager.drawImage(ctx, 'bo_flying_1', -40, -40, 80, 80);
+        ctx.restore();
+        
+        // Instructions with pulsing effect
+        ctx.font = '24px Arial';
+        ctx.fillStyle = '#333333';
+        const pulse = Math.sin(this.animationTime * 0.05) * 0.1 + 1;
+        ctx.save();
+        ctx.scale(pulse, pulse);
+        ctx.fillText('Click or Press Space to Start', CONFIG.GAME.WIDTH/2 / pulse, 400 / pulse);
+        ctx.restore();
+        
+        ctx.font = '18px Arial';
+        ctx.fillText('Help Bo collect nectar!', CONFIG.GAME.WIDTH/2, 450);
+        
+        // High score with glow effect
+        if (this.game.highScore > 0) {
+            ctx.save();
+            ctx.font = '20px Arial';
+            ctx.fillStyle = '#FF6347';
+            ctx.shadowColor = '#FFD700';
+            ctx.shadowBlur = 10;
+            ctx.fillText(`High Score: ${this.game.highScore}`, CONFIG.GAME.WIDTH/2, 500);
+            ctx.restore();
+        }
+    }
+    
+    handleInput(input) {
+        if (input === 'flap') {
+            this.game.setState('playing');
+            return; // Prevent input from being processed in menu state
+        }
+    }
+}
+
+class PlayingState extends GameState {
+    enter() {
+        // Reset particle system when entering playing state
+        this.game.particleSystem.particles = [];
+        
+        // Start Bo in middle of screen with upward velocity
+        this.game.bo = new Bo(CONFIG.BEE.X, CONFIG.GAME.HEIGHT/2 - 50);
+        this.game.bo.velocity = CONFIG.BEE.START_VELOCITY; // Start moving up
+        this.game.obstacles = [];
+        this.game.score = 0;
+        this.obstacleTimer = 0;
+        this.backgroundX = 0;
+        this.floorX = 0;
+        this.cloudX = 0;
+        this.combo = 0;
+        this.lastScoreTime = 0;
+        this.startDelay = 90;  // 1.5 seconds delay before obstacles
+        this.graceFrames = 60; // Full second of no collision detection
+        this.game.floatingScores = []; // Reset floating scores
+        soundManager.play('garden_ambient', { loop: true, volume: 0.3 });
+    }
+    
+    exit() {
+        soundManager.stop('garden_ambient');
+    }
+    
+    update() {
+        // Grace period countdown
+        if (this.graceFrames > 0) {
+            this.graceFrames--;
+            
+            // During grace period, limit Bo's downward movement
+            if (this.game.bo.velocity > 2) {
+                this.game.bo.velocity = 2;
+            }
+        }
+        
+        // Update Bo
+        this.game.bo.update();
+        
+        // Keep Bo in safe zone during grace period
+        if (this.graceFrames > 0) {
+            const maxY = CONFIG.GAME.HEIGHT - CONFIG.GAME.GROUND_HEIGHT - this.game.bo.height - 20;
+            if (this.game.bo.y > maxY) {
+                this.game.bo.y = maxY;
+                this.game.bo.velocity = Math.min(0, this.game.bo.velocity);
+            }
+        } else {
+            // Check bounds only after grace period
+            if (this.game.bo.y < 0 || this.game.bo.y + this.game.bo.height > CONFIG.GAME.HEIGHT - CONFIG.GAME.GROUND_HEIGHT) {
+                this.game.setState('gameover');
+                return;
+            }
+        }
+        
+        // Countdown before spawning obstacles
+        if (this.startDelay > 0) {
+            this.startDelay--;
+        } else {
+            // Spawn obstacles with difficulty scaling
+            this.obstacleTimer++;
+            const spawnInterval = Math.max(150, CONFIG.FLOWERS.SPACING - Math.floor(this.game.score / 100) * 10);
+            if (this.obstacleTimer >= spawnInterval) {
+                this.game.obstacles.push(new Obstacle(CONFIG.GAME.WIDTH));
+                this.obstacleTimer = 0;
+            }
+        }
+        
+        // Update obstacles
+        this.game.obstacles = this.game.obstacles.filter(obstacle => {
+            obstacle.update();
+            
+            // Increase speed slightly based on score
+            obstacle.speed = CONFIG.GAME.OBSTACLE_SPEED + Math.min(2, this.game.score / 200);
+            
+            // Check collision
+            const collision = obstacle.checkCollision(this.game.bo);
+            if (collision === 'obstacle') {
+                this.combo = 0;
+                this.game.setState('gameover');
+                return false;
+            } else if (collision === 'nectar') {
+                this.combo++;
+                const points = CONFIG.SCORING.NECTAR_COLLECT + (this.combo - 1);
+                this.game.score += points;
+                this.showFloatingScore(points, obstacle.x + obstacle.width/2, obstacle.gapY + obstacle.gapHeight/2);
+                this.game.particleSystem.emit(
+                    obstacle.x + obstacle.width/2,
+                    obstacle.gapY + obstacle.gapHeight/2,
+                    '#FFB6C1',
+                    CONFIG.PARTICLES.NECTAR_COUNT
+                );
+                soundManager.play('collect_nectar');
+            } else if (collision === 'honey') {
+                this.combo += 5;
+                const points = CONFIG.SCORING.NECTAR_COLLECT * 5 + this.combo;
+                this.game.score += points;
+                this.showFloatingScore(points, obstacle.x + obstacle.width/2, obstacle.gapY + obstacle.gapHeight/2);
+                this.game.particleSystem.emit(
+                    obstacle.x + obstacle.width/2,
+                    obstacle.gapY + obstacle.gapHeight/2,
+                    '#FFD700',
+                    CONFIG.PARTICLES.NECTAR_COUNT * 2
+                );
+                soundManager.play('collect_nectar');
+            } else if (collision === 'pollination') {
+                this.game.score += CONFIG.SCORING.POLLINATION_BONUS;
+                this.game.particleSystem.emit(
+                    obstacle.x + obstacle.width/2,
+                    obstacle.gapY + obstacle.gapHeight/2,
+                    '#90EE90',
+                    5
+                );
+            }
+            
+            // Check if passed
+            if (!obstacle.passed && obstacle.x + obstacle.width < this.game.bo.x) {
+                obstacle.passed = true;
+                this.game.score += CONFIG.SCORING.PASS_OBSTACLE;
+            }
+            
+            return obstacle.x + obstacle.width > -50;
+        });
+        
+        // Update particles
+        this.game.particleSystem.update();
+        
+        // Update floating scores
+        if (this.game.floatingScores) {
+            this.game.floatingScores = this.game.floatingScores.filter(score => {
+                score.y -= 2;
+                score.life--;
+                return score.life > 0;
+            });
+        }
+        
+        // Scroll backgrounds
+        this.cloudX -= 0.5;
+        if (this.cloudX < -CONFIG.GAME.WIDTH) {
+            this.cloudX = 0;
+        }
+        
+        // Use base obstacle speed for floor scrolling
+        this.floorX -= CONFIG.GAME.OBSTACLE_SPEED;
+        if (this.floorX < -80) {
+            this.floorX = 0;
+        }
+    }
+    
+    showFloatingScore(points, x, y) {
+        if (!this.game.floatingScores) {
+            this.game.floatingScores = [];
+        }
+        this.game.floatingScores.push({
+            points,
+            x,
+            y,
+            life: 30
+        });
+    }
+    
+    render() {
+        const ctx = this.game.ctx;
+        
+        // Sky background
+        ctx.fillStyle = '#87CEEB';
+        ctx.fillRect(0, 0, CONFIG.GAME.WIDTH, CONFIG.GAME.HEIGHT);
+        
+        // Moving clouds
+        assetManager.drawImage(ctx, 'clouds', this.cloudX, 20, 200, 80);
+        assetManager.drawImage(ctx, 'clouds', this.cloudX + 200, 60, 200, 80);
+        assetManager.drawImage(ctx, 'clouds', this.cloudX + 400, 40, 200, 80);
+        
+        // Scrolling flowerpot floor
+        assetManager.drawImage(ctx, 'Flowerpot_Floor', 
+                              this.floorX, 
+                              CONFIG.GAME.HEIGHT - CONFIG.GAME.GROUND_HEIGHT, 
+                              CONFIG.GAME.WIDTH * 2, 
+                              CONFIG.GAME.GROUND_HEIGHT);
+        
+        // Obstacles
+        this.game.obstacles.forEach(obstacle => obstacle.render(ctx));
+        
+        // Particles
+        this.game.particleSystem.render(ctx);
+        
+        // Bo
+        this.game.bo.render(ctx);
+        
+        // Floating scores
+        if (this.game.floatingScores) {
+            ctx.save();
+            this.game.floatingScores.forEach(score => {
+                ctx.globalAlpha = score.life / 30;
+                ctx.fillStyle = '#FFD700';
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`+${score.points}`, score.x, score.y);
+            });
+            ctx.restore();
+        }
+        
+        // Score with arcade style
+        ctx.save();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.font = 'bold 36px Arial';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 5;
+        ctx.strokeText(this.game.score, CONFIG.GAME.WIDTH/2, 50);
+        ctx.fillText(this.game.score, CONFIG.GAME.WIDTH/2, 50);
+        
+        // Ready message during grace period
+        if (this.graceFrames > 0) {
+            ctx.font = 'bold 32px Arial';
+            ctx.fillStyle = '#FFD700';
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 3;
+            ctx.strokeText('GET READY!', CONFIG.GAME.WIDTH/2, CONFIG.GAME.HEIGHT/2);
+            ctx.fillText('GET READY!', CONFIG.GAME.WIDTH/2, CONFIG.GAME.HEIGHT/2);
+        }
+        
+        // Combo indicator
+        if (this.combo > 1) {
+            ctx.font = 'bold 18px Arial';
+            ctx.fillStyle = '#FF69B4';
+            ctx.fillText(`Combo x${this.combo}`, CONFIG.GAME.WIDTH/2, 80);
+        }
+        ctx.restore();
+    }
+    
+    handleInput(input) {
+        if (input === 'flap') {
+            this.game.bo.flap();
+        }
+    }
+}
+
+class GameOverState extends GameState {
+    enter() {
+        this.animationTime = 0;
+        this.floorX = 0;
+        this.cloudX = 0;
+        
+        // Save high score
+        if (this.game.score > this.game.highScore) {
+            this.game.highScore = this.game.score;
+            localStorage.setItem('boHighScore', this.game.highScore);
+            this.newHighScore = true;
+        } else {
+            this.newHighScore = false;
+        }
+        
+        soundManager.play('hit_obstacle');
+        
+        // Collision particles
+        this.game.particleSystem.emit(
+            this.game.bo.x + this.game.bo.width/2,
+            this.game.bo.y + this.game.bo.height/2,
+            '#FF6347',
+            CONFIG.PARTICLES.COLLISION_COUNT,
+            { spread: Math.PI * 2, speed: 6 }
+        );
+    }
+    
+    update() {
+        this.animationTime++;
+        this.game.particleSystem.update();
+        
+        // Slow scrolling
+        this.floorX -= 0.5;
+        if (this.floorX < -80) {
+            this.floorX = 0;
+        }
+        
+        this.cloudX -= 0.2;
+        if (this.cloudX < -CONFIG.GAME.WIDTH) {
+            this.cloudX = 0;
+        }
+    }
+    
+    render() {
+        const ctx = this.game.ctx;
+        
+        // Sky background
+        ctx.fillStyle = '#87CEEB';
+        ctx.fillRect(0, 0, CONFIG.GAME.WIDTH, CONFIG.GAME.HEIGHT);
+        
+        // Moving clouds
+        assetManager.drawImage(ctx, 'clouds', this.cloudX, 20, 200, 80);
+        assetManager.drawImage(ctx, 'clouds', this.cloudX + 200, 60, 200, 80);
+        
+        // Scrolling flowerpot floor
+        assetManager.drawImage(ctx, 'Flowerpot_Floor', 
+                              this.floorX, 
+                              CONFIG.GAME.HEIGHT - CONFIG.GAME.GROUND_HEIGHT, 
+                              CONFIG.GAME.WIDTH * 2, 
+                              CONFIG.GAME.GROUND_HEIGHT);
+        
+        // Darken overlay
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, 0, CONFIG.GAME.WIDTH, CONFIG.GAME.HEIGHT);
+        
+        // Particles
+        this.game.particleSystem.render(ctx);
+        
+        // Game Over text with arcade style
+        ctx.save();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 4;
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = 'rgba(255,0,0,0.5)';
+        ctx.shadowBlur = 20;
+        ctx.strokeText('Game Over', CONFIG.GAME.WIDTH/2, 200);
+        ctx.fillText('Game Over', CONFIG.GAME.WIDTH/2, 200);
+        ctx.restore();
+        
+        // Score
+        ctx.save();
+        ctx.font = 'bold 36px Arial';
+        ctx.fillStyle = '#FFD700';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = 'rgba(255,215,0,0.5)';
+        ctx.shadowBlur = 10;
+        ctx.strokeText(`Score: ${this.game.score}`, CONFIG.GAME.WIDTH/2, 280);
+        ctx.fillText(`Score: ${this.game.score}`, CONFIG.GAME.WIDTH/2, 280);
+        
+        // High Score with animation
+        if (this.newHighScore) {
+            const scale = 1 + Math.sin(this.animationTime * 0.1) * 0.1;
+            ctx.save();
+            ctx.translate(CONFIG.GAME.WIDTH/2, 330);
+            ctx.scale(scale, scale);
+            ctx.font = 'bold 28px Arial';
+            ctx.fillStyle = '#FF69B4';
+            ctx.strokeText('NEW HIGH SCORE!', 0, 0);
+            ctx.fillText('NEW HIGH SCORE!', 0, 0);
+            ctx.restore();
+        } else {
+            ctx.font = '24px Arial';
+            ctx.fillStyle = '#FFFFFF';
+            ctx.strokeText(`High Score: ${this.game.highScore}`, CONFIG.GAME.WIDTH/2, 330);
+            ctx.fillText(`High Score: ${this.game.highScore}`, CONFIG.GAME.WIDTH/2, 330);
+        }
+        ctx.restore();
+        
+        // Restart instruction with blink effect
+        ctx.save();
+        ctx.font = '24px Arial';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        const text = 'Click or Press Space to Restart';
+        if (this.animationTime > 30 && Math.floor(this.animationTime / 20) % 2 === 0) {
+            ctx.strokeText(text, CONFIG.GAME.WIDTH/2, 420);
+            ctx.fillText(text, CONFIG.GAME.WIDTH/2, 420);
+        }
+        ctx.restore();
+        
+        // Sad Bo with wobble
+        ctx.save();
+        ctx.translate(CONFIG.GAME.WIDTH/2, 480);
+        ctx.rotate(Math.sin(this.animationTime * 0.1) * 0.1);
+        assetManager.drawImage(ctx, 'bo_hurt', -40, -40, 80, 80);
+        ctx.restore();
+    }
+    
+    handleInput(input) {
+        if (input === 'flap' && this.animationTime > 30) {
+            this.game.setState('menu');
+        }
+    }
+}
+
+// ========== MAIN GAME CLASS ==========
+class Game {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.ctx.imageSmoothingEnabled = false; // Pixel perfect rendering
+        
+        this.states = {
+            menu: new MenuState(this),
+            playing: new PlayingState(this),
+            gameover: new GameOverState(this)
+        };
+        this.currentState = null;
+        this.bo = null;
+        this.obstacles = [];
+        this.score = 0;
+        this.highScore = parseInt(localStorage.getItem('boHighScore') || '0');
+        this.particleSystem = new ParticleSystem();
+        this.floatingScores = [];
+        
+        this.setupInput();
+        this.inputQueue = [];
+        this.setState('menu');
+    }
+    
+    setState(stateName) {
+        if (this.currentState) {
+            this.currentState.exit();
+        }
+        this.currentState = this.states[stateName];
+        this.currentState.enter();
+        // Clear input queue on state change
+        this.inputQueue = [];
+    }
+    
+    setupInput() {
+        // Prevent double-tap zoom on mobile
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', (e) => {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) {
+                e.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+        
+        // Mouse/Touch with improved handling
+        const handleFlap = (e) => {
+            e.preventDefault();
+            this.inputQueue.push('flap');
+        };
+        
+        this.canvas.addEventListener('click', handleFlap);
+        this.canvas.addEventListener('touchstart', handleFlap, { passive: false });
+        
+        // Keyboard
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.key === ' ') {
+                e.preventDefault();
+                this.inputQueue.push('flap');
+            }
+        });
+        
+        // Arcade button
+        const flapBtn = document.getElementById('flapBtn');
+        if (flapBtn) {
+            flapBtn.addEventListener('click', handleFlap);
+            flapBtn.addEventListener('touchstart', handleFlap, { passive: false });
+        }
+    }
+    
+    processInput() {
+        // Only process one input per frame
+        if (this.inputQueue.length > 0 && this.currentState) {
+            const input = this.inputQueue.shift();
+            this.currentState.handleInput(input);
+            // Clear queue if too many inputs
+            if (this.inputQueue.length > 2) {
+                this.inputQueue = this.inputQueue.slice(-2);
+            }
+        }
+    }
+    
+    update() {
+        this.processInput();
+        if (this.currentState) {
+            this.currentState.update();
+        }
+    }
+    
+    render() {
+        // Clear canvas with explicit full clear
+        this.ctx.clearRect(0, 0, CONFIG.GAME.WIDTH, CONFIG.GAME.HEIGHT);
+        this.ctx.fillStyle = '#000';
+        this.ctx.fillRect(0, 0, CONFIG.GAME.WIDTH, CONFIG.GAME.HEIGHT);
+        
+        if (this.currentState) {
+            this.currentState.render();
+        }
+    }
+}
+
+// ========== INITIALIZATION ==========
+let game;
+let assetManager;
+let soundManager;
+let lastTime = 0;
+let frameCount = 0;
+let fps = 60;
+let fpsInterval = 1000 / fps;
+
+async function init() {
+    const canvas = document.getElementById('gameCanvas');
+    if (!canvas) {
+        console.error('Canvas not found!');
+        return;
+    }
+    
+    // Set canvas resolution for sharp pixels
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    
+    // Create managers
+    assetManager = new AssetManager();
+    soundManager = new SoundManager();
+    
+    // Load all assets
+    try {
+        await assetManager.loadAll();
+        await soundManager.initialize(assetManager);
+    } catch (error) {
+        console.error('Failed to load assets:', error);
+    }
+    
+    // Create game
+    game = new Game(canvas);
+    
+    // Start game loop
+    lastTime = performance.now();
+    requestAnimationFrame(gameLoop);
+}
+
+function gameLoop(currentTime) {
+    requestAnimationFrame(gameLoop);
+    
+    // Calculate delta time
+    const deltaTime = currentTime - lastTime;
+    
+    // Update at fixed framerate
+    if (deltaTime >= fpsInterval) {
+        // Update game
+        game.update();
+        game.render();
+        
+        // Update timing
+        lastTime = currentTime - (deltaTime % fpsInterval);
+        frameCount++;
+    }
+}
+
+// Handle visibility change to pause audio
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden && soundManager) {
+        soundManager.stop('garden_ambient');
+    } else if (!document.hidden && game && game.currentState === game.states.playing) {
+        soundManager.play('garden_ambient', { loop: true, volume: 0.3 });
+    }
+});
+
+// Start when page loads
+window.addEventListener('load', init);
+
+// Handle window resize for mobile
+window.addEventListener('resize', () => {
+    // Adjust arcade machine for mobile if needed
+    const arcadeMachine = document.getElementById('arcadeMachine');
+    if (arcadeMachine && window.innerWidth < 600) {
+        arcadeMachine.style.height = 'auto';
+    }
+});
+    </script>
+</body>
+</html>
