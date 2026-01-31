@@ -2,13 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
     <title>Bo the Bumblebee - Arcade Edition</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overscroll-behavior: none;
         }
         
         body {
@@ -17,8 +23,13 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
+            min-height: 100dvh;
             font-family: 'Arial', sans-serif;
             overflow: hidden;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
         }
         
         /* Arcade Machine Container */
@@ -143,6 +154,7 @@
             cursor: pointer;
             position: relative;
             transition: all 0.1s;
+            touch-action: none;
         }
         
         .arcadeButton:active {
@@ -174,15 +186,20 @@
             background: white;
             border-radius: 5px;
             overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         /* Canvas */
         canvas {
             display: block;
+            image-rendering: pixelated;
             image-rendering: crisp-edges;
             cursor: pointer;
             position: relative;
             z-index: 1;
+            touch-action: none;
         }
         
         /* Loading Screen */
@@ -231,6 +248,7 @@
             color: rgba(255,255,255,0.7);
             font-size: 12px;
             z-index: 2;
+            pointer-events: none;
         }
         
         /* Mobile adjustments */
@@ -262,8 +280,10 @@
             }
             
             canvas {
-                width: 100% !important;
-                height: 100% !important;
+                width: auto;
+                height: auto;
+                max-width: 100%;
+                max-height: 100%;
             }
             
             #controlPanel {
@@ -294,12 +314,12 @@
                         </div>
                     </div>
                 </div>
-                <div id="instructions">Press SPACE or click button to play</div>
+                <div id="instructions">Tap/Click or press Space/↑ to flap (M to mute)</div>
             </div>
         </div>
         
         <div id="controlPanel">
-            <button class="arcadeButton" id="flapBtn"></button>
+            <button class="arcadeButton" id="flapBtn" type="button" aria-label="Flap"></button>
         </div>
     </div>
 
@@ -704,52 +724,92 @@ class AssetManager {
 class SoundManager {
     constructor() {
         this.sounds = {};
+        this.pools = {};
+        this.poolIndex = {};
         this.muted = false;
         this.volume = 0.5;
+        this.unlocked = false;
     }
     
     async initialize(assetManager) {
         this.sounds = assetManager.sounds;
         
-        // Set volume for all sounds
-        Object.values(this.sounds).forEach(sound => {
-            if (sound) {
-                sound.volume = this.volume;
+        // Create small pools for SFX so rapid plays don't cut each other off
+        const POOL_SIZE = 4;
+        Object.entries(this.sounds).forEach(([name, baseSound]) => {
+            if (!baseSound) return;
+            if (name === 'garden_ambient') {
+                baseSound.volume = this.volume;
+                this.pools[name] = [baseSound];
+                this.poolIndex[name] = 0;
+                return;
             }
+            const pool = [baseSound, ...Array.from({ length: POOL_SIZE - 1 }, () => baseSound.cloneNode(true))];
+            pool.forEach(s => {
+                s.volume = this.volume;
+                s.loop = false;
+                s.preload = 'auto';
+            });
+            this.pools[name] = pool;
+            this.poolIndex[name] = 0;
         });
+    }
+    
+    async unlockFromUserGesture() {
+        if (this.unlocked) return;
+        for (const pool of Object.values(this.pools)) {
+            if (!pool) continue;
+            for (const sound of pool) {
+                if (!sound) continue;
+                try {
+                    const prevMuted = sound.muted;
+                    sound.muted = true;
+                    await sound.play();
+                    sound.pause();
+                    sound.currentTime = 0;
+                    sound.muted = prevMuted;
+                    this.unlocked = true;
+                    return;
+                } catch {
+                    // Try next sound
+                }
+            }
+        }
     }
     
     play(name, options = {}) {
-        if (this.muted || !this.sounds[name]) return;
+        if (this.muted || !this.pools[name] || this.pools[name].length === 0) return;
         
-        const sound = this.sounds[name];
+        const isLoop = !!options.loop;
+        const volume = (options.volume ?? 1) * this.volume;
         
-        if (options.loop) {
-            sound.loop = true;
-        }
-        
-        if (options.volume !== undefined) {
-            sound.volume = options.volume * this.volume;
-        }
-        
+        const pool = this.pools[name];
+        const sound = isLoop ? pool[0] : pool[this.poolIndex[name]++ % pool.length];
+        sound.loop = isLoop;
+        sound.volume = volume;
         sound.currentTime = 0;
-        sound.play().catch(e => {
-            console.log(`Could not play sound ${name}:`, e);
-        });
+        sound.play().catch(() => {});
     }
     
     stop(name) {
-        if (this.sounds[name]) {
-            this.sounds[name].pause();
-            this.sounds[name].currentTime = 0;
-        }
+        if (!this.pools[name] || this.pools[name].length === 0) return;
+        this.pools[name].forEach(sound => {
+            if (!sound) return;
+            sound.pause();
+            sound.currentTime = 0;
+            sound.loop = false;
+        });
     }
     
     toggleMute() {
         this.muted = !this.muted;
         if (this.muted) {
-            Object.values(this.sounds).forEach(sound => {
-                if (sound) sound.pause();
+            Object.values(this.pools).forEach(pool => {
+                if (!pool) return;
+                pool.forEach(sound => {
+                    if (!sound) return;
+                    sound.pause();
+                });
             });
         }
     }
@@ -1021,10 +1081,11 @@ class Obstacle extends Entity {
             if (this.hasNectar || this.hasHoney) {
                 const collectX = this.x + this.width/2;
                 const collectY = this.gapY + this.gapHeight/2;
-                const dist = Math.sqrt(Math.pow(bo.x + bo.width/2 - collectX, 2) + 
-                                     Math.pow(bo.y + bo.height/2 - collectY, 2));
+                const dx = (bo.x + bo.width/2) - collectX;
+                const dy = (bo.y + bo.height/2) - collectY;
+                const dist2 = dx * dx + dy * dy;
                 
-                if (dist < 30) {
+                if (dist2 < 30 * 30) {
                     if (this.hasNectar) {
                         this.hasNectar = false;
                         return 'nectar';
@@ -1127,10 +1188,11 @@ class MenuState extends GameState {
         // Instructions with pulsing effect
         ctx.font = '24px Arial';
         ctx.fillStyle = '#333333';
+        ctx.textAlign = 'center';
         const pulse = Math.sin(this.animationTime * 0.05) * 0.1 + 1;
         ctx.save();
         ctx.scale(pulse, pulse);
-        ctx.fillText('Click or Press Space to Start', CONFIG.GAME.WIDTH/2 / pulse, 400 / pulse);
+        ctx.fillText('Tap/Click or Press Space/↑ to Start', CONFIG.GAME.WIDTH/2 / pulse, 400 / pulse);
         ctx.restore();
         
         ctx.font = '18px Arial';
@@ -1405,7 +1467,7 @@ class GameOverState extends GameState {
         // Save high score
         if (this.game.score > this.game.highScore) {
             this.game.highScore = this.game.score;
-            localStorage.setItem('boHighScore', this.game.highScore);
+            storage.set('boHighScore', this.game.highScore);
             this.newHighScore = true;
         } else {
             this.newHighScore = false;
@@ -1483,6 +1545,7 @@ class GameOverState extends GameState {
         ctx.fillStyle = '#FFD700';
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 3;
+        ctx.textAlign = 'center';
         ctx.shadowColor = 'rgba(255,215,0,0.5)';
         ctx.shadowBlur = 10;
         ctx.strokeText(`Score: ${this.game.score}`, CONFIG.GAME.WIDTH/2, 280);
@@ -1513,7 +1576,8 @@ class GameOverState extends GameState {
         ctx.fillStyle = '#FFFFFF';
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 2;
-        const text = 'Click or Press Space to Restart';
+        ctx.textAlign = 'center';
+        const text = 'Tap/Click or Press Space/↑ to Restart';
         if (this.animationTime > 30 && Math.floor(this.animationTime / 20) % 2 === 0) {
             ctx.strokeText(text, CONFIG.GAME.WIDTH/2, 420);
             ctx.fillText(text, CONFIG.GAME.WIDTH/2, 420);
@@ -1536,11 +1600,32 @@ class GameOverState extends GameState {
 }
 
 // ========== MAIN GAME CLASS ==========
+const storage = {
+    get(key, fallback = null) {
+        try {
+            const v = localStorage.getItem(key);
+            return v === null ? fallback : v;
+        } catch {
+            return fallback;
+        }
+    },
+    set(key, value) {
+        try {
+            localStorage.setItem(key, String(value));
+        } catch {
+            // Ignore storage failures (private mode, quotas, etc.)
+        }
+    }
+};
+
 class Game {
     constructor(canvas) {
         this.canvas = canvas;
-        this.ctx = canvas.getContext('2d');
-        this.ctx.imageSmoothingEnabled = false; // Pixel perfect rendering
+        this.ctx = canvas.getContext('2d', { alpha: false, desynchronized: true }) || canvas.getContext('2d');
+        this.ctx.imageSmoothingEnabled = false;
+        this.scaleX = 1;
+        this.scaleY = 1;
+        this._lastResizeKey = '';
         
         this.states = {
             menu: new MenuState(this),
@@ -1551,13 +1636,14 @@ class Game {
         this.bo = null;
         this.obstacles = [];
         this.score = 0;
-        this.highScore = parseInt(localStorage.getItem('boHighScore') || '0');
+        this.highScore = parseInt(storage.get('boHighScore', '0'), 10) || 0;
         this.particleSystem = new ParticleSystem();
         this.floatingScores = [];
         
         this.setupInput();
-        this.inputQueue = [];
+        this.pendingFlap = false;
         this.setState('menu');
+        this.resizeToFit();
     }
     
     setState(stateName) {
@@ -1566,56 +1652,106 @@ class Game {
         }
         this.currentState = this.states[stateName];
         this.currentState.enter();
-        // Clear input queue on state change
-        this.inputQueue = [];
+        this.pendingFlap = false;
+    }
+    
+    resizeToFit() {
+        const container = document.getElementById('gameContainer') || this.canvas.parentElement;
+        const availableWidth = container?.clientWidth || CONFIG.GAME.WIDTH;
+        const availableHeight = container?.clientHeight || CONFIG.GAME.HEIGHT;
+        
+        const scale = Math.max(0.1, Math.min(availableWidth / CONFIG.GAME.WIDTH, availableHeight / CONFIG.GAME.HEIGHT));
+        const displayWidth = Math.round(CONFIG.GAME.WIDTH * scale);
+        const displayHeight = Math.round(CONFIG.GAME.HEIGHT * scale);
+        const dpr = Math.min(window.devicePixelRatio || 1, 3);
+        
+        const resizeKey = `${displayWidth}x${displayHeight}@${dpr}`;
+        if (resizeKey === this._lastResizeKey) return;
+        this._lastResizeKey = resizeKey;
+        
+        this.canvas.style.width = `${displayWidth}px`;
+        this.canvas.style.height = `${displayHeight}px`;
+        this.canvas.width = Math.round(displayWidth * dpr);
+        this.canvas.height = Math.round(displayHeight * dpr);
+        
+        // Canvas resizing resets context state
+        this.ctx.imageSmoothingEnabled = false;
+        this.scaleX = this.canvas.width / CONFIG.GAME.WIDTH;
+        this.scaleY = this.canvas.height / CONFIG.GAME.HEIGHT;
     }
     
     setupInput() {
-        // Prevent double-tap zoom on mobile
-        let lastTouchEnd = 0;
-        document.addEventListener('touchend', (e) => {
-            const now = Date.now();
-            if (now - lastTouchEnd <= 300) {
-                e.preventDefault();
+        const requestFlap = async (e) => {
+            if (e?.cancelable) e.preventDefault();
+            this.pendingFlap = true;
+            if (soundManager) {
+                soundManager.unlockFromUserGesture();
             }
-            lastTouchEnd = now;
-        }, false);
-        
-        // Mouse/Touch with improved handling
-        const handleFlap = (e) => {
-            e.preventDefault();
-            this.inputQueue.push('flap');
         };
         
-        this.canvas.addEventListener('click', handleFlap);
-        this.canvas.addEventListener('touchstart', handleFlap, { passive: false });
-        
-        // Keyboard
-        document.addEventListener('keydown', (e) => {
-            if (e.code === 'Space' || e.key === ' ') {
-                e.preventDefault();
-                this.inputQueue.push('flap');
-            }
-        });
-        
-        // Arcade button
+        const supportsPointer = typeof window !== 'undefined' && 'PointerEvent' in window;
         const flapBtn = document.getElementById('flapBtn');
-        if (flapBtn) {
-            flapBtn.addEventListener('click', handleFlap);
-            flapBtn.addEventListener('touchstart', handleFlap, { passive: false });
+        
+        if (supportsPointer) {
+            const onPointerDown = (e) => {
+                if (e.isPrimary === false) return;
+                if (typeof e.button === 'number' && e.button !== 0) return;
+                requestFlap(e);
+            };
+            this.canvas.addEventListener('pointerdown', onPointerDown, { passive: false });
+            flapBtn?.addEventListener('pointerdown', onPointerDown, { passive: false });
+        } else {
+            let lastTouchAt = 0;
+            
+            const onMouseDown = (e) => {
+                // Some browsers dispatch synthetic mouse events after touch events
+                if (Date.now() - lastTouchAt < 600) return;
+                if (typeof e.button === 'number' && e.button !== 0) return;
+                requestFlap(e);
+            };
+            const onTouchStart = (e) => {
+                lastTouchAt = Date.now();
+                requestFlap(e);
+            };
+            this.canvas.addEventListener('mousedown', onMouseDown);
+            flapBtn?.addEventListener('mousedown', onMouseDown);
+            
+            this.canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+            flapBtn?.addEventListener('touchstart', onTouchStart, { passive: false });
         }
+        
+        // Keyboard (ignore repeats so holding a key doesn't auto-flap)
+        document.addEventListener('keydown', (e) => {
+            if (e.repeat) return;
+            
+            const key = e.key;
+            const isFlapKey =
+                e.code === 'Space' || key === ' ' ||
+                e.code === 'ArrowUp' || key === 'ArrowUp' ||
+                e.code === 'Enter' || key === 'Enter' ||
+                e.code === 'KeyW' || key === 'w' || key === 'W';
+            if (isFlapKey) {
+                if (e.cancelable) e.preventDefault();
+                requestFlap();
+                return;
+            }
+            
+            if (e.code === 'KeyM' || key === 'm' || key === 'M') {
+                if (e.cancelable) e.preventDefault();
+                soundManager?.toggleMute();
+            }
+        }, { passive: false });
+        
+        // Prevent context menu on long-press/right-click
+        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        flapBtn?.addEventListener('contextmenu', (e) => e.preventDefault());
     }
     
     processInput() {
-        // Only process one input per frame
-        if (this.inputQueue.length > 0 && this.currentState) {
-            const input = this.inputQueue.shift();
-            this.currentState.handleInput(input);
-            // Clear queue if too many inputs
-            if (this.inputQueue.length > 2) {
-                this.inputQueue = this.inputQueue.slice(-2);
-            }
-        }
+        if (!this.currentState) return;
+        if (!this.pendingFlap) return;
+        this.pendingFlap = false;
+        this.currentState.handleInput('flap');
     }
     
     update() {
@@ -1626,10 +1762,12 @@ class Game {
     }
     
     render() {
-        // Clear canvas with explicit full clear
-        this.ctx.clearRect(0, 0, CONFIG.GAME.WIDTH, CONFIG.GAME.HEIGHT);
+        // Clear the full physical canvas, then render in game coordinates
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = '#000';
-        this.ctx.fillRect(0, 0, CONFIG.GAME.WIDTH, CONFIG.GAME.HEIGHT);
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.setTransform(this.scaleX, 0, 0, this.scaleY, 0, 0);
         
         if (this.currentState) {
             this.currentState.render();
@@ -1645,6 +1783,7 @@ let lastTime = 0;
 let frameCount = 0;
 let fps = 60;
 let fpsInterval = 1000 / fps;
+let paused = false;
 
 async function init() {
     const canvas = document.getElementById('gameCanvas');
@@ -1652,10 +1791,7 @@ async function init() {
         console.error('Canvas not found!');
         return;
     }
-    
-    // Set canvas resolution for sharp pixels
-    const ctx = canvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
+    // Game configures the canvas context
     
     // Create managers
     assetManager = new AssetManager();
@@ -1671,6 +1807,7 @@ async function init() {
     
     // Create game
     game = new Game(canvas);
+    game.resizeToFit();
     
     // Start game loop
     lastTime = performance.now();
@@ -1679,6 +1816,11 @@ async function init() {
 
 function gameLoop(currentTime) {
     requestAnimationFrame(gameLoop);
+    
+    if (!game || paused) {
+        lastTime = currentTime;
+        return;
+    }
     
     // Calculate delta time
     const deltaTime = currentTime - lastTime;
@@ -1697,10 +1839,15 @@ function gameLoop(currentTime) {
 
 // Handle visibility change to pause audio
 document.addEventListener('visibilitychange', () => {
-    if (document.hidden && soundManager) {
-        soundManager.stop('garden_ambient');
-    } else if (!document.hidden && game && game.currentState === game.states.playing) {
-        soundManager.play('garden_ambient', { loop: true, volume: 0.3 });
+    if (document.hidden) {
+        paused = true;
+        soundManager?.stop('garden_ambient');
+    } else {
+        paused = false;
+        lastTime = performance.now();
+        if (soundManager && game && game.currentState === game.states.playing) {
+            soundManager.play('garden_ambient', { loop: true, volume: 0.3 });
+        }
     }
 });
 
@@ -1708,13 +1855,16 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('load', init);
 
 // Handle window resize for mobile
-window.addEventListener('resize', () => {
-    // Adjust arcade machine for mobile if needed
-    const arcadeMachine = document.getElementById('arcadeMachine');
-    if (arcadeMachine && window.innerWidth < 600) {
-        arcadeMachine.style.height = 'auto';
-    }
-});
+let resizeRaf = 0;
+function handleResize() {
+    if (resizeRaf) return;
+    resizeRaf = requestAnimationFrame(() => {
+        resizeRaf = 0;
+        game?.resizeToFit();
+    });
+}
+window.addEventListener('resize', handleResize, { passive: true });
+window.addEventListener('orientationchange', handleResize, { passive: true });
     </script>
-</body>
-</html>
+  </body>
+  </html>
