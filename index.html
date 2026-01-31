@@ -367,6 +367,14 @@ const CONFIG = {
     },
     TIMING: {
         NECTAR_SPAWN_CHANCE: 0.3
+    },
+    COLLISION: {
+        // Pixel-perfect collision uses the sprite's alpha channel to avoid "invisible walls"
+        PIXEL_PERFECT_OBSTACLES: true,
+        // 0-255 alpha threshold; higher ignores more semi-transparent edge pixels
+        ALPHA_THRESHOLD: 30,
+        // Sampling step in game pixels (1 = most accurate)
+        SAMPLE_STEP: 1
     }
 };
 
@@ -378,6 +386,9 @@ class AssetManager {
         this.loaded = false;
         this.loadingProgress = 0;
         this.placeholderCache = new Map(); // Cache for placeholder canvases
+        this.alphaMaskCache = new Map(); // Cache for alpha masks used in pixel-perfect collision
+        this._maskCanvas = document.createElement('canvas');
+        this._maskCtx = this._maskCanvas.getContext('2d');
         
         // Define all assets to load
         this.imageFiles = [
@@ -397,6 +408,36 @@ class AssetManager {
             'hit_obstacle.mp3',
             'garden_ambient.mp3'
         ];
+    }
+
+    getAlphaMask(imageName, width, height) {
+        const w = Math.max(1, Math.floor(width));
+        const h = Math.max(1, Math.floor(height));
+        const key = `${imageName}@${w}x${h}`;
+        const cached = this.alphaMaskCache.get(key);
+        if (cached) return cached;
+        
+        try {
+            this._maskCanvas.width = w;
+            this._maskCanvas.height = h;
+            this._maskCtx.imageSmoothingEnabled = false;
+            this._maskCtx.clearRect(0, 0, w, h);
+            
+            // Render the sprite at the same size as in-game, then read the alpha channel
+            this.drawImage(this._maskCtx, imageName, 0, 0, w, h);
+            const data = this._maskCtx.getImageData(0, 0, w, h).data;
+            const alpha = new Uint8Array(w * h);
+            for (let i = 0, j = 3; i < alpha.length; i++, j += 4) {
+                alpha[i] = data[j];
+            }
+            
+            const mask = { alpha, width: w, height: h };
+            this.alphaMaskCache.set(key, mask);
+            return mask;
+        } catch (e) {
+            console.warn('Could not build alpha mask for', imageName, e);
+            return null;
+        }
     }
     
     async loadAll() {
@@ -989,6 +1030,40 @@ class Obstacle extends Entity {
         // Fixed height for sunflowers
         this.sunflowerHeight = 300;
     }
+
+    pixelCollidesWithMask(boHitbox, mask, spriteX, spriteY, clipTop, clipBottom) {
+        if (!mask) return false;
+        
+        const shrink = CONFIG.FLOWERS.HITBOX_SHRINK;
+        const left = Math.max(boHitbox.left, spriteX + shrink);
+        const right = Math.min(boHitbox.right, spriteX + this.width - shrink);
+        const top = Math.max(boHitbox.top, clipTop);
+        const bottom = Math.min(boHitbox.bottom, clipBottom);
+        
+        if (right <= left || bottom <= top) return false;
+        
+        const step = Math.max(1, (CONFIG.COLLISION.SAMPLE_STEP | 0));
+        const threshold = Math.max(0, Math.min(255, (CONFIG.COLLISION.ALPHA_THRESHOLD | 0)));
+        
+        const xStart = Math.floor(left);
+        const xEnd = Math.ceil(right);
+        const yStart = Math.floor(top);
+        const yEnd = Math.ceil(bottom);
+        
+        for (let y = yStart; y < yEnd; y += step) {
+            const maskY = Math.floor(y - spriteY);
+            if (maskY < 0 || maskY >= mask.height) continue;
+            const rowOffset = maskY * mask.width;
+            
+            for (let x = xStart; x < xEnd; x += step) {
+                const maskX = Math.floor(x - spriteX);
+                if (maskX < 0 || maskX >= mask.width) continue;
+                if (mask.alpha[rowOffset + maskX] > threshold) return true;
+            }
+        }
+        
+        return false;
+    }
     
     update() {
         this.x -= this.speed;
@@ -1061,19 +1136,48 @@ class Obstacle extends Entity {
     
     checkCollision(bo) {
         const boHitbox = bo.getHitbox();
-        const topHitbox = this.getTopHitbox();
-        const bottomHitbox = this.getBottomHitbox();
+        const usePixel = !!(CONFIG.COLLISION.PIXEL_PERFECT_OBSTACLES && assetManager?.getAlphaMask);
         
-        // Check if Bo hit the top flower
-        if (!(boHitbox.right < topHitbox.left || boHitbox.left > topHitbox.right || 
-              boHitbox.bottom < topHitbox.top || boHitbox.top > topHitbox.bottom)) {
-            return 'obstacle';
-        }
-        
-        // Check if Bo hit the bottom flower
-        if (!(boHitbox.right < bottomHitbox.left || boHitbox.left > bottomHitbox.right || 
-              boHitbox.bottom < bottomHitbox.top || boHitbox.top > bottomHitbox.bottom)) {
-            return 'obstacle';
+        if (usePixel) {
+            // Use the sprite's alpha channel to avoid "invisible walls" from rectangular hitboxes.
+            const topSpriteY = this.gapY - this.sunflowerHeight;
+            const topMask = assetManager.getAlphaMask('sunflower_top', this.width, this.sunflowerHeight);
+            if (topMask) {
+                if (this.pixelCollidesWithMask(boHitbox, topMask, this.x, topSpriteY, 0, this.gapY)) return 'obstacle';
+            } else {
+                const topHitbox = this.getTopHitbox();
+                if (!(boHitbox.right < topHitbox.left || boHitbox.left > topHitbox.right || 
+                      boHitbox.bottom < topHitbox.top || boHitbox.top > topHitbox.bottom)) {
+                    return 'obstacle';
+                }
+            }
+            
+            const bottomY = this.gapY + this.gapHeight;
+            const bottomMask = assetManager.getAlphaMask('sunflower_bottom', this.width, this.sunflowerHeight);
+            if (bottomMask) {
+                if (this.pixelCollidesWithMask(boHitbox, bottomMask, this.x, bottomY, bottomY, CONFIG.GAME.HEIGHT - CONFIG.GAME.GROUND_HEIGHT)) return 'obstacle';
+            } else {
+                const bottomHitbox = this.getBottomHitbox();
+                if (!(boHitbox.right < bottomHitbox.left || boHitbox.left > bottomHitbox.right || 
+                      boHitbox.bottom < bottomHitbox.top || boHitbox.top > bottomHitbox.bottom)) {
+                    return 'obstacle';
+                }
+            }
+        } else {
+            const topHitbox = this.getTopHitbox();
+            const bottomHitbox = this.getBottomHitbox();
+            
+            // Check if Bo hit the top flower
+            if (!(boHitbox.right < topHitbox.left || boHitbox.left > topHitbox.right || 
+                  boHitbox.bottom < topHitbox.top || boHitbox.top > topHitbox.bottom)) {
+                return 'obstacle';
+            }
+            
+            // Check if Bo hit the bottom flower
+            if (!(boHitbox.right < bottomHitbox.left || boHitbox.left > bottomHitbox.right || 
+                  boHitbox.bottom < bottomHitbox.top || boHitbox.top > bottomHitbox.bottom)) {
+                return 'obstacle';
+            }
         }
         
         // Check for collectibles
